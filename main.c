@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <time.h>
-// this is test comment 1
-// this is test comment 2
 
 char* date_formatter(char* date);
 char* time_unit_converter(int hrs);
