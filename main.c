@@ -1,16 +1,15 @@
 #include <stdio.h>
 #include <strings.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <time.h>
+#include <stdlib.h>         // for malloc() and free()
+#include <ctype.h>          // for isdigit()
+#include <time.h>           // for datetime manipulation, struct tm and time_t?
 
-char* date_formatter(char* date);
-char* time_unit_converter(int hrs);
-char* date_formatter(char* date);
+char *date_formatter(char *date);
+char *time_unit_converter(int hrs);
 void file_handler();
-void file_formatter(char* f_start_date, char* f_end_date, char* f_start_time, char* f_end_time);
-long int get_epoch(int day, int month, int year, int hour, int minute);
-long int get_epoch_from_string(char datestring[64], char timestring[64]);
+void file_formatter(char *f_start_date, char *f_end_date, char *f_start_time, char *f_end_time);
+long long get_epoch(int day, int month, int year, int hour, int minute);
+long long get_epoch_from_string(char datestring[64], char timestring[64]);
 
 int main(){
     char start_date[64] = {0};
@@ -18,16 +17,14 @@ int main(){
     int start_time = 0;
     int end_time = 0;
 
-    char* formatted_start_time = "";
-    char* formatted_end_time = "";
-    char* formatted_start_date = "";
-    char* formatted_end_date = "";
-
-    // program doesn't yet calculate the average length of each message...
+    char *formatted_start_time = "";
+    char *formatted_end_time = "";
+    char *formatted_start_date = "";
+    char *formatted_end_date = "";
 
     printf("Enter the start date (DD-MM-YYYY): ");
     fgets(start_date, sizeof(start_date), stdin);
-    start_date[strcspn(start_date, "\n")] = 0;          //strcspn?
+    start_date[strcspn(start_date, "\n")] = '\0';
     formatted_start_date = date_formatter(start_date);
 
     printf("Enter the start time in hrs: ");
@@ -37,7 +34,7 @@ int main(){
 
     printf("Enter the end date (DD-MM-YYYY): ");
     fgets(end_date, sizeof(end_date), stdin);
-    end_date[strcspn(end_date, "\n")] = 0;
+    end_date[strcspn(end_date, "\n")] = '\0';
     formatted_end_date = date_formatter(end_date);
 
     printf("Enter the end time in hrs: ");
@@ -45,20 +42,20 @@ int main(){
     formatted_end_time = time_unit_converter(end_time);
     getchar();
 
-    printf("formatted start time:  %s\n", formatted_start_time);
-    printf("formatted end time: %s", formatted_end_time);
+    //printf("formatted start time:  %s\n", formatted_start_time);
+    //printf("formatted end time: %s", formatted_end_time);
 
     file_formatter(formatted_start_date, formatted_end_date, formatted_start_time, formatted_end_time);
     file_handler();
 
-    free(formatted_end_time);       // time strings are correctly freed up
+    free(formatted_end_time);       // time strings are freed up, why date strings not freed?
     free(formatted_start_time);
 
     return 0;
 }
 
 
-char* date_formatter(char* date){
+char *date_formatter(char *date){
     int d, m, y;
 
     if (sscanf(date, "%d-%d-%d", &d, &m, &y) == 3 ||
@@ -67,17 +64,17 @@ char* date_formatter(char* date){
             if (y < 100){
                 y += 2000;
             }
-            sprintf(date, "%02d/%02d/%04d", d, m, y);           //sprintf?
+            sprintf(date, "%02d/%02d/%04d", d, m, y);
     }
 
-    return date;
+    return date;            // date = date[0] "points to the address of"? the first element of the date string
 }
 
 
-char* time_unit_converter(int hrs){
+char *time_unit_converter(int hrs){
     int hours = (hrs / 100);     // account for if the user enters something like 1675, then add an hour and make the last two digits into 15
     int minutes = hrs % 100;
-    char* meridian = hrs > 1200 ? "pm" : "am";
+    char *meridian = hrs > 1200 ? "pm" : "am";
 
     if (minutes >= 60){
         hours = hours + (minutes / 60);
@@ -87,18 +84,18 @@ char* time_unit_converter(int hrs){
     hours = hours % 12;
     if (hours == 0) hours = 12;
 
-    char *time_string = malloc(11 * sizeof(char));
+    char *time_string = malloc(11 * sizeof(char));          // malloc returns the address of the first element, so * dereferences it.
     if (time_string == NULL) return NULL;
 
-    snprintf(time_string, 11, "%02d:%02d %s", hours, minutes, meridian);     //snprintf?
+    snprintf(time_string, 11, "%02d:%02d %s", hours, minutes, meridian);        // snprintf = protection from buffer overflow
 
     return time_string;
 }
 
 
-void file_formatter(char* f_start_date, char* f_end_date, char* f_start_time, char* f_end_time){
-    FILE *chats_file = fopen("WhatsApp Chat.txt", "r");
-    FILE *temp_file = fopen("temp.txt", "w");
+void file_formatter(char *f_start_date, char *f_end_date, char *f_start_time, char *f_end_time){
+    FILE *chats_file = fopen("WhatsApp Chat.txt", "r");             // original exported text file
+    FILE *temp_file = fopen("temp.txt", "w");                       // temp file with formatted time, gets deleted later on
 
     char reading_buffer[1024] = {0};
 
@@ -130,34 +127,33 @@ void file_formatter(char* f_start_date, char* f_end_date, char* f_start_time, ch
     fclose(chats_file);
     fclose(temp_file);
 
-    // check if using the same name, ie using Formatted Text.txt in place of temp.txt would work.
+    // check if using the same name, ie using Formatted Text.txt in place of temp.txt would work?
 
-    FILE *formatted_file = fopen("Formatted Text.txt", "w");
+    FILE *formatted_file = fopen("Formatted Text.txt", "w");                        // file containing whatsapp chats with formatted time
     FILE *temp = fopen("temp.txt", "r");
     int d = 0, m = 0, y = 0, hr = 0, min = 0;
-    time_t current_epoch = 0;       // somehow try to mix the getting of start epoch, end epoch and current epoch with a centralised function.
-    //long int current_epoch = time(NULL);
-    long int start_epoch = get_epoch_from_string(f_start_date, f_start_time);         // convert the start and end timestamps into corresponding epoch times.
-    long int end_epoch = get_epoch_from_string(f_end_date, f_end_time);
+    time_t current_epoch = 0;              // somehow try to mix the getting of start epoch, end epoch and current epoch with a centralised function.
+    
+    long long start_epoch = get_epoch_from_string(f_start_date, f_start_time);         // convert the start and end timestamps into corresponding epoch times.
+    long long end_epoch = get_epoch_from_string(f_end_date, f_end_time);
 
-    printf("\nstarting epoch, %ld", start_epoch);
-    printf("\nending epoch, %ld", end_epoch);
+    //printf("\nstarting epoch, %ld", start_epoch);
+    //printf("\nending epoch, %ld", end_epoch);
     //printf("\ncurrent epoch, %ld", current_epoch);
     
     char meridian[8] = {0};
     char temp_mem[1024] = {0};
 
     while (fgets(temp_mem, 1024, temp) != NULL){
-        sscanf(temp_mem, "%d/%d/%d %d:%d %s", &d, &m, &y, &hr, &min, meridian);
+        sscanf(temp_mem, "%d/%d/%d %d:%d %s", &d, &m, &y, &hr, &min, meridian);     // name of array = address of the first element of array
         if (strcmp(meridian, "pm") == 0 && hr != 12) hr+= 12;
         if (strcmp(meridian, "am") == 0 && hr == 12) hr = 0;
         current_epoch = get_epoch(d, m, y, hr, min);
         
-        if (start_epoch <= current_epoch && end_epoch >= current_epoch){
+        if (start_epoch <= current_epoch && end_epoch >= current_epoch){        // else condition, for invalid date input
             fputs(temp_mem, formatted_file);
         }
     }
-    
 
     fclose(temp);
     remove("temp.txt");
@@ -181,27 +177,27 @@ void file_formatter(char* f_start_date, char* f_end_date, char* f_start_time, ch
     }
 
     while (fgets(buffer, 1024, formatted_file_) != NULL){
-        fputs(buffer + 25, stripped_file);
+        fputs(buffer + 25, stripped_file);          // skips the first 25 spaces for the date time information
     }
 
     fclose(stripped_file);
     fclose(formatted_file_);
 }
 
-long int get_epoch_from_string(char datestring[64], char timestring[64]){ // calculate the size of datestring and timestring, and use that instead of *
+long long get_epoch_from_string(char datestring[64], char timestring[64]){ // calculate the size of datestring and timestring, and use that instead of *
     int d = 0, m = 0, y = 0, hr = 0, min = 0;
     char meridian[3] = {0};
-    char temp_mem[64] = {0};
+    char temp_mem[64] = {0};        // temp memory containing the whole timestamp, date and time, as string
     snprintf(temp_mem, sizeof(temp_mem), "%s %s", datestring, timestring);
-    sscanf(temp_mem, "%d/%d/%d %d:%d %s", &d, &m, &y, &hr, &min, &meridian);
+    sscanf(temp_mem, "%d/%d/%d %d:%d %s", &d, &m, &y, &hr, &min, &meridian);        // assigning individual components to individual containers
     if (strcmp(meridian, "pm") == 0 && hr != 12) hr+= 12;
     if (strcmp(meridian, "am") == 0 && hr == 12) hr = 0;
     return get_epoch(d, m, y, hr, min);
 }
 
-long get_epoch(int day, int month, int year, int hour, int minute){
+long long get_epoch(int day, int month, int year, int hour, int minute){
     struct tm t = {0};
-    time_t t_of_day;
+    time_t reqd_epoch;
     
     t.tm_year = year - 1900;
     t.tm_mon = month - 1;
@@ -211,9 +207,9 @@ long get_epoch(int day, int month, int year, int hour, int minute){
     t.tm_sec = 0;
     t.tm_isdst = -1;            // is daylight saving time in effect
 
-    t_of_day = mktime(&t);
+    reqd_epoch = mktime(&t);
 
-    return (long)t_of_day;
+    return (long long)reqd_epoch;
 }
 
 void file_handler(){
